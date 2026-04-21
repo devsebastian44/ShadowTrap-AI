@@ -1,7 +1,9 @@
 """
 ShadowTrap AI - Database Layer (MongoDB via Motor)
 """
+
 import logging
+
 from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
 from pymongo import ASCENDING, DESCENDING, IndexModel
 
@@ -24,35 +26,43 @@ async def init_db():
 
 async def _create_indexes():
     # login_attempts collection
-    await _db.login_attempts.create_indexes([
-        IndexModel([("timestamp", DESCENDING)]),
-        IndexModel([("src_ip", ASCENDING)]),
-        IndexModel([("username", ASCENDING)]),
-        IndexModel([("country_code", ASCENDING)]),
-        IndexModel([("session", ASCENDING)]),
-    ])
+    await _db.login_attempts.create_indexes(
+        [
+            IndexModel([("timestamp", DESCENDING)]),
+            IndexModel([("src_ip", ASCENDING)]),
+            IndexModel([("username", ASCENDING)]),
+            IndexModel([("country_code", ASCENDING)]),
+            IndexModel([("session", ASCENDING)]),
+        ]
+    )
 
     # commands collection
-    await _db.commands.create_indexes([
-        IndexModel([("timestamp", DESCENDING)]),
-        IndexModel([("src_ip", ASCENDING)]),
-        IndexModel([("session", ASCENDING)]),
-        IndexModel([("input", "text")]),
-    ])
+    await _db.commands.create_indexes(
+        [
+            IndexModel([("timestamp", DESCENDING)]),
+            IndexModel([("src_ip", ASCENDING)]),
+            IndexModel([("session", ASCENDING)]),
+            IndexModel([("input", "text")]),
+        ]
+    )
 
     # sessions collection
-    await _db.sessions.create_indexes([
-        IndexModel([("session", ASCENDING)], unique=True),
-        IndexModel([("src_ip", ASCENDING)]),
-        IndexModel([("start_time", DESCENDING)]),
-    ])
+    await _db.sessions.create_indexes(
+        [
+            IndexModel([("session", ASCENDING)], unique=True),
+            IndexModel([("src_ip", ASCENDING)]),
+            IndexModel([("start_time", DESCENDING)]),
+        ]
+    )
 
     # alerts collection
-    await _db.alerts.create_indexes([
-        IndexModel([("timestamp", DESCENDING)]),
-        IndexModel([("src_ip", ASCENDING)]),
-        IndexModel([("sent", ASCENDING)]),
-    ])
+    await _db.alerts.create_indexes(
+        [
+            IndexModel([("timestamp", DESCENDING)]),
+            IndexModel([("src_ip", ASCENDING)]),
+            IndexModel([("sent", ASCENDING)]),
+        ]
+    )
 
     logger.info("✅ Database indexes created")
 

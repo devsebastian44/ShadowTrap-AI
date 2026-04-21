@@ -1,7 +1,9 @@
 """
 ShadowTrap AI - Configuration Management
 """
+
 from typing import List
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 

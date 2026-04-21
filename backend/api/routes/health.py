@@ -1,8 +1,10 @@
 """
 ShadowTrap AI - Health & Alerts Routes
 """
+
 from datetime import datetime, timezone
-from fastapi import APIRouter, Query
+
+from fastapi import APIRouter
 
 from core.database import get_db
 
@@ -10,6 +12,7 @@ router = APIRouter()
 
 
 # ─── Health ───────────────────────────────────────────────────────────────────
+
 
 @router.get("/health")
 async def health_check():

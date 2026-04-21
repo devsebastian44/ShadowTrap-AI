@@ -1,11 +1,13 @@
 """
 ShadowTrap AI - Data Models
 """
+
 from datetime import datetime
-from typing import Optional, List
 from enum import Enum
-from pydantic import BaseModel, Field
+from typing import List, Optional
+
 from bson import ObjectId
+from pydantic import BaseModel, Field
 
 
 class PyObjectId(ObjectId):
@@ -30,6 +32,7 @@ class AttackCategory(str, Enum):
 
 
 # ─── Login Attempt ────────────────────────────────────────────────────────────
+
 
 class LoginAttempt(BaseModel):
     id: Optional[str] = Field(None, alias="_id")
@@ -56,6 +59,7 @@ class LoginAttempt(BaseModel):
 
 # ─── Command ──────────────────────────────────────────────────────────────────
 
+
 class Command(BaseModel):
     id: Optional[str] = Field(None, alias="_id")
     session: str
@@ -72,6 +76,7 @@ class Command(BaseModel):
 
 
 # ─── Session ──────────────────────────────────────────────────────────────────
+
 
 class Session(BaseModel):
     session: str
@@ -92,6 +97,7 @@ class Session(BaseModel):
 
 # ─── Alert ────────────────────────────────────────────────────────────────────
 
+
 class Alert(BaseModel):
     id: Optional[str] = Field(None, alias="_id")
     timestamp: datetime
@@ -111,6 +117,7 @@ class Alert(BaseModel):
 
 # ─── Stats ────────────────────────────────────────────────────────────────────
 
+
 class DashboardStats(BaseModel):
     total_attempts: int
     unique_ips: int
@@ -127,6 +134,7 @@ class DashboardStats(BaseModel):
 
 
 # ─── API Response Schemas ──────────────────────────────────────────────────────
+
 
 class PaginatedResponse(BaseModel):
     total: int

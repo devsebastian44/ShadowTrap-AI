@@ -1,9 +1,11 @@
 """
 ShadowTrap AI - Events API Routes
 """
-from datetime import datetime, timezone
+
+from datetime import datetime
 from typing import Optional
-from fastapi import APIRouter, Query, HTTPException
+
+from fastapi import APIRouter, HTTPException, Query
 
 from core.database import get_db
 from models.schemas import PaginatedResponse
@@ -48,9 +50,9 @@ async def get_login_attempts(
     total = await db.login_attempts.count_documents(query)
     skip = (page - 1) * per_page
 
-    cursor = db.login_attempts.find(
-        query, {"_id": 0}
-    ).sort("timestamp", -1).skip(skip).limit(per_page)
+    cursor = (
+        db.login_attempts.find(query, {"_id": 0}).sort("timestamp", -1).skip(skip).limit(per_page)
+    )
 
     data = await cursor.to_list(per_page)
 
@@ -81,9 +83,7 @@ async def get_commands(
     total = await db.commands.count_documents(query)
     skip = (page - 1) * per_page
 
-    cursor = db.commands.find(
-        query, {"_id": 0}
-    ).sort("timestamp", -1).skip(skip).limit(per_page)
+    cursor = db.commands.find(query, {"_id": 0}).sort("timestamp", -1).skip(skip).limit(per_page)
 
     data = await cursor.to_list(per_page)
 
@@ -104,9 +104,7 @@ async def get_sessions(
     total = await db.sessions.count_documents(query)
     skip = (page - 1) * per_page
 
-    cursor = db.sessions.find(
-        query, {"_id": 0}
-    ).sort("start_time", -1).skip(skip).limit(per_page)
+    cursor = db.sessions.find(query, {"_id": 0}).sort("start_time", -1).skip(skip).limit(per_page)
 
     data = await cursor.to_list(per_page)
     return PaginatedResponse(total=total, page=page, per_page=per_page, data=data)
@@ -119,13 +117,13 @@ async def get_session_detail(session_id: str):
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
 
-    logins = await db.login_attempts.find(
-        {"session": session_id}, {"_id": 0}
-    ).to_list(1000)
+    logins = await db.login_attempts.find({"session": session_id}, {"_id": 0}).to_list(1000)
 
-    commands = await db.commands.find(
-        {"session": session_id}, {"_id": 0}
-    ).sort("timestamp", 1).to_list(1000)
+    commands = (
+        await db.commands.find({"session": session_id}, {"_id": 0})
+        .sort("timestamp", 1)
+        .to_list(1000)
+    )
 
     return {
         "session": session,

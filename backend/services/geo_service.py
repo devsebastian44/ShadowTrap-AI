@@ -3,12 +3,11 @@ ShadowTrap AI - GeoIP Lookup Service
 Uses MaxMind GeoLite2 database for IP geolocation.
 Falls back to ip-api.com if local DB is unavailable.
 """
-import asyncio
+
 import logging
-import httpx
 from pathlib import Path
-from functools import lru_cache
-from typing import Optional
+
+import httpx
 
 logger = logging.getLogger("shadowtrap.geo")
 
@@ -25,6 +24,7 @@ class GeoService:
         if self.db_path.exists():
             try:
                 import maxminddb
+
                 self._reader = maxminddb.open_database(str(self.db_path))
                 logger.info("✅ GeoLite2 database loaded")
             except Exception as e:
@@ -71,7 +71,7 @@ class GeoService:
             async with httpx.AsyncClient(timeout=5.0) as client:
                 r = await client.get(
                     f"http://ip-api.com/json/{ip}",
-                    params={"fields": "status,country,countryCode,city,lat,lon,isp"}
+                    params={"fields": "status,country,countryCode,city,lat,lon,isp"},
                 )
                 data = r.json()
                 if data.get("status") == "success":

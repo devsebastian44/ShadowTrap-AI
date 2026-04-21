@@ -2,9 +2,9 @@
 ShadowTrap AI - Alert Service
 Sends real-time alerts to Telegram and/or Discord.
 """
+
 import logging
-from datetime import datetime, timezone, timedelta
-from typing import Optional
+from datetime import datetime, timedelta, timezone
 
 import httpx
 
@@ -14,23 +14,26 @@ logger = logging.getLogger("shadowtrap.alerts")
 
 
 class AlertService:
-
     async def check_and_alert(self, src_ip: str, timestamp: datetime, db):
         """Check if an IP has exceeded the threshold and trigger alert."""
         window_start = timestamp - timedelta(seconds=settings.ALERT_THRESHOLD_WINDOW_SECONDS)
 
-        count = await db.login_attempts.count_documents({
-            "src_ip": src_ip,
-            "timestamp": {"$gte": window_start},
-        })
+        count = await db.login_attempts.count_documents(
+            {
+                "src_ip": src_ip,
+                "timestamp": {"$gte": window_start},
+            }
+        )
 
         if count >= settings.ALERT_THRESHOLD_ATTEMPTS:
             # Check if we already alerted for this IP recently
-            recent_alert = await db.alerts.find_one({
-                "src_ip": src_ip,
-                "timestamp": {"$gte": window_start},
-                "event_type": "brute_force_threshold",
-            })
+            recent_alert = await db.alerts.find_one(
+                {
+                    "src_ip": src_ip,
+                    "timestamp": {"$gte": window_start},
+                    "event_type": "brute_force_threshold",
+                }
+            )
 
             if not recent_alert:
                 await self._create_and_send_alert(src_ip, count, db)
@@ -65,10 +68,7 @@ class AlertService:
         if settings.DISCORD_ENABLED:
             sent = await self._send_discord(message) or sent
 
-        await db.alerts.update_one(
-            {"_id": alert_id},
-            {"$set": {"sent": sent}}
-        )
+        await db.alerts.update_one({"_id": alert_id}, {"$set": {"sent": sent}})
 
         logger.warning(f"🚨 Alert triggered for {src_ip} ({attempts} attempts). Sent={sent}")
 
@@ -83,7 +83,7 @@ class AlertService:
                         "chat_id": settings.TELEGRAM_CHAT_ID,
                         "text": message,
                         "parse_mode": "Markdown",
-                    }
+                    },
                 )
                 return r.status_code == 200
         except Exception as e:
@@ -103,7 +103,7 @@ class AlertService:
                         "content": discord_message,
                         "username": "ShadowTrap AI",
                         "avatar_url": "https://i.imgur.com/shadowtrap.png",
-                    }
+                    },
                 )
                 return r.status_code in (200, 204)
         except Exception as e:

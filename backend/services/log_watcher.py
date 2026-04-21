@@ -2,6 +2,7 @@
 ShadowTrap AI - Cowrie Log Watcher (tail -f equivalent)
 Parses Cowrie JSON logs in real-time and stores events to MongoDB.
 """
+
 import asyncio
 import json
 import logging
@@ -10,9 +11,9 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from core.database import get_db
-from services.geo_service import GeoService
 from services.alert_service import AlertService
 from services.classifier import AttackClassifier
+from services.geo_service import GeoService
 
 logger = logging.getLogger("shadowtrap.watcher")
 
@@ -126,21 +127,23 @@ class LogWatcher:
             geo_data = await self.geo.lookup(event.get("src_ip", ""))
             await db.sessions.update_one(
                 {"session": session_id},
-                {"$set": {
-                    "session": session_id,
-                    "src_ip": event.get("src_ip", "unknown"),
-                    "src_port": event.get("src_port"),
-                    "start_time": self._parse_timestamp(event.get("timestamp")),
-                    **geo_data,
-                }},
-                upsert=True
+                {
+                    "$set": {
+                        "session": session_id,
+                        "src_ip": event.get("src_ip", "unknown"),
+                        "src_port": event.get("src_port"),
+                        "start_time": self._parse_timestamp(event.get("timestamp")),
+                        **geo_data,
+                    }
+                },
+                upsert=True,
             )
         elif event_id == "cowrie.session.closed":
             end_time = self._parse_timestamp(event.get("timestamp"))
             duration = int(event.get("duration", 0))
             await db.sessions.update_one(
                 {"session": session_id},
-                {"$set": {"end_time": end_time, "duration_seconds": duration}}
+                {"$set": {"end_time": end_time, "duration_seconds": duration}},
             )
 
     def _classify_command(self, cmd: str) -> list:

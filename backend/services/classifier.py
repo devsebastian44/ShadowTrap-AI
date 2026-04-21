@@ -2,8 +2,8 @@
 ShadowTrap AI - Attack Classifier
 Heuristic-based classification of attack patterns.
 """
+
 import logging
-from typing import TYPE_CHECKING
 
 from models.schemas import AttackCategory
 
@@ -18,19 +18,18 @@ DICT_USERNAMES = {"administrator", "Administrator", "Admin", "ROOT", "ADMIN"}
 
 
 class AttackClassifier:
-
     async def classify_login(self, src_ip: str, username: str, db) -> AttackCategory:
         """Classify a login attempt based on behavioral patterns."""
         if not db:
             return AttackCategory.UNKNOWN
 
         # Count attempts from this IP in last 5 minutes
-        from datetime import datetime, timezone, timedelta
+        from datetime import datetime, timedelta, timezone
+
         window = datetime.now(timezone.utc) - timedelta(minutes=5)
-        count = await db.login_attempts.count_documents({
-            "src_ip": src_ip,
-            "timestamp": {"$gte": window}
-        })
+        count = await db.login_attempts.count_documents(
+            {"src_ip": src_ip, "timestamp": {"$gte": window}}
+        )
 
         # Bot scan: high volume, common credentials
         if count > 20 and username.lower() in BOT_USERNAMES:
@@ -42,7 +41,7 @@ class AttackClassifier:
             pipeline = [
                 {"$match": {"src_ip": src_ip, "timestamp": {"$gte": window}}},
                 {"$group": {"_id": "$password"}},
-                {"$count": "unique_passwords"}
+                {"$count": "unique_passwords"},
             ]
             result = await db.login_attempts.aggregate(pipeline).to_list(1)
             if result and result[0].get("unique_passwords", 0) > 10:

@@ -2,6 +2,7 @@
 ShadowTrap AI - SSH Honeypot Intelligence Platform
 FastAPI Backend Application
 """
+
 import asyncio
 import logging
 from contextlib import asynccontextmanager
@@ -10,16 +11,12 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 
-from api.routes import events, stats, alerts, health
+from api.routes import alerts, events, health, stats
 from core.config import settings
 from core.database import init_db
 from services.log_watcher import LogWatcher
-from services.alert_service import AlertService
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s"
-)
+logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
 logger = logging.getLogger("shadowtrap")
 
 
