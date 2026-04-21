@@ -30,13 +30,7 @@ async def get_alerts(
 
     total = await db.alerts.count_documents(query)
     skip = (page - 1) * per_page
-    data = (
-        await db.alerts.find(query, {"_id": 0})
-        .sort("timestamp", -1)
-        .skip(skip)
-        .limit(per_page)
-        .to_list(per_page)
-    )
+    data = await db.alerts.find(query, {"_id": 0}).sort("timestamp", -1).skip(skip).limit(per_page).to_list(per_page)
 
     return PaginatedResponse(total=total, page=page, per_page=per_page, data=data)
 

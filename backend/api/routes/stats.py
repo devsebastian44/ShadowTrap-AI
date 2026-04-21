@@ -26,12 +26,8 @@ async def get_dashboard_stats(
 
     # Unique IPs
     unique_ips = len(await db.login_attempts.distinct("src_ip", {"timestamp": {"$gte": since}}))
-    unique_usernames = len(
-        await db.login_attempts.distinct("username", {"timestamp": {"$gte": since}})
-    )
-    unique_passwords = len(
-        await db.login_attempts.distinct("password", {"timestamp": {"$gte": since}})
-    )
+    unique_usernames = len(await db.login_attempts.distinct("username", {"timestamp": {"$gte": since}}))
+    unique_passwords = len(await db.login_attempts.distinct("password", {"timestamp": {"$gte": since}}))
 
     # Top IPs
     top_ips = await db.login_attempts.aggregate(
@@ -163,17 +159,9 @@ async def get_ip_profile(ip_address: str):
 
     usernames = await db.login_attempts.distinct("username", {"src_ip": ip_address})
     passwords = await db.login_attempts.distinct("password", {"src_ip": ip_address})
-    commands = (
-        await db.commands.find({"src_ip": ip_address}, {"_id": 0})
-        .sort("timestamp", -1)
-        .limit(50)
-        .to_list(50)
-    )
+    commands = await db.commands.find({"src_ip": ip_address}, {"_id": 0}).sort("timestamp", -1).limit(50).to_list(50)
 
-    geo = {
-        k: last_seen.get(k)
-        for k in ["country_code", "country_name", "city", "latitude", "longitude", "isp"]
-    }
+    geo = {k: last_seen.get(k) for k in ["country_code", "country_name", "city", "latitude", "longitude", "isp"]}
 
     return {
         "ip": ip_address,

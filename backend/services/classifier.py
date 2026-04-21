@@ -27,9 +27,7 @@ class AttackClassifier:
         from datetime import datetime, timedelta, timezone
 
         window = datetime.now(timezone.utc) - timedelta(minutes=5)
-        count = await db.login_attempts.count_documents(
-            {"src_ip": src_ip, "timestamp": {"$gte": window}}
-        )
+        count = await db.login_attempts.count_documents({"src_ip": src_ip, "timestamp": {"$gte": window}})
 
         # Bot scan: high volume, common credentials
         if count > 20 and username.lower() in BOT_USERNAMES:

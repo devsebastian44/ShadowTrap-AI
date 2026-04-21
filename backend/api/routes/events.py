@@ -50,9 +50,7 @@ async def get_login_attempts(
     total = await db.login_attempts.count_documents(query)
     skip = (page - 1) * per_page
 
-    cursor = (
-        db.login_attempts.find(query, {"_id": 0}).sort("timestamp", -1).skip(skip).limit(per_page)
-    )
+    cursor = db.login_attempts.find(query, {"_id": 0}).sort("timestamp", -1).skip(skip).limit(per_page)
 
     data = await cursor.to_list(per_page)
 
@@ -119,11 +117,7 @@ async def get_session_detail(session_id: str):
 
     logins = await db.login_attempts.find({"session": session_id}, {"_id": 0}).to_list(1000)
 
-    commands = (
-        await db.commands.find({"session": session_id}, {"_id": 0})
-        .sort("timestamp", 1)
-        .to_list(1000)
-    )
+    commands = await db.commands.find({"session": session_id}, {"_id": 0}).sort("timestamp", 1).to_list(1000)
 
     return {
         "session": session,
