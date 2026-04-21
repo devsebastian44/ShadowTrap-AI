@@ -1,0 +1,117 @@
+version: "3.9"
+
+services:
+  # ─── Cowrie SSH Honeypot ──────────────────────────────────────────────────
+  cowrie:
+    image: cowrie/cowrie:latest
+    container_name: shadowtrap_cowrie
+    restart: unless-stopped
+    ports:
+      - "2222:2222"   # SSH honeypot (redirect port 22 → 2222 via iptables)
+      - "2223:2223"   # Telnet honeypot (optional)
+    volumes:
+      - cowrie_logs:/cowrie/var/log/cowrie
+      - cowrie_dl:/cowrie/var/lib/cowrie/downloads
+      - ./cowrie-config/cowrie.cfg:/cowrie/etc/cowrie.cfg:ro
+      - ./cowrie-config/userdb.txt:/cowrie/etc/userdb.txt:ro
+    environment:
+      - COWRIE_HOSTNAME=prod-server-01
+    networks:
+      - shadowtrap_net
+
+  # ─── ShadowTrap AI Backend ────────────────────────────────────────────────
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: shadowtrap_backend
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    volumes:
+      - cowrie_logs:/cowrie/var/log/cowrie:ro
+      - ./backend/.env:/app/.env:ro
+      - geoip_data:/app/data
+    environment:
+      - MONGODB_URL=${MONGODB_URL:-mongodb://shadowtrap_user:shadowtrap_pass@mongo:27017/shadowtrap}
+      - COWRIE_LOG_PATH=/cowrie/var/log/cowrie/cowrie.json
+    depends_on:
+      mongo:
+        condition: service_healthy
+      cowrie:
+        condition: service_started
+    networks:
+      - shadowtrap_net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # ─── MongoDB ──────────────────────────────────────────────────────────────
+  mongo:
+    image: mongo:7.0
+    container_name: shadowtrap_mongo
+    restart: unless-stopped
+    volumes:
+      - mongo_data:/data/db
+      - ./docker/mongo-init.js:/docker-entrypoint-initdb.d/init.js:ro
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=${MONGO_ROOT_USER:-root}
+      - MONGO_INITDB_ROOT_PASSWORD=${MONGO_ROOT_PASS:-root_password}
+      - MONGO_INITDB_DATABASE=shadowtrap
+    networks:
+      - shadowtrap_net
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  # ─── Dashboard (Nginx serves the static UI) ───────────────────────────────
+  dashboard:
+    image: nginx:alpine
+    container_name: shadowtrap_dashboard
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+    volumes:
+      - ./dashboard:/usr/share/nginx/html:ro
+      - ./docker/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - backend
+    networks:
+      - shadowtrap_net
+
+  # ─── Mongo Express (optional admin UI) ───────────────────────────────────
+  mongo-express:
+    image: mongo-express:latest
+    container_name: shadowtrap_mongo_express
+    restart: unless-stopped
+    ports:
+      - "8081:8081"
+    environment:
+      - ME_CONFIG_MONGODB_SERVER=mongo
+      - ME_CONFIG_MONGODB_PORT=27017
+      - ME_CONFIG_MONGODB_ADMINUSERNAME=${MONGO_ROOT_USER:-root}
+      - ME_CONFIG_MONGODB_ADMINPASSWORD=${MONGO_ROOT_PASS:-root_password}
+      - ME_CONFIG_BASICAUTH_USERNAME=${ME_USERNAME:-admin}
+      - ME_CONFIG_BASICAUTH_PASSWORD=${ME_PASSWORD:-change-this-pass}
+    depends_on:
+      mongo:
+        condition: service_healthy
+    networks:
+      - shadowtrap_net
+    profiles:
+      - debug
+
+volumes:
+  mongo_data:
+  cowrie_logs:
+  cowrie_dl:
+  geoip_data:
+
+networks:
+  shadowtrap_net:
+    driver: bridge

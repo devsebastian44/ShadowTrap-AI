@@ -1,0 +1,36 @@
+# OS / Environment
+.env
+.env.*
+.DS_Store
+Thumbs.db
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual Environments
+venv/
+env/
+.venv/
+.env/
+
+# IDEs
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Docker
+.dockerignore
+
+# Testing / Logs
+.pytest_cache/
+.coverage
+coverage.xml
+htmlcov/
+*.log
+cowrie-config/var/log/
+
+# Misc
+dist/
+build/
+*.egg-info/

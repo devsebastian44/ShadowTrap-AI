@@ -1,0 +1,538 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>ShadowTrap AI — SSH Honeypot Intelligence</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;600;700&family=Syne:wght@400;700;800&display=swap');
+
+  :root {
+    --bg:        #080c10;
+    --bg2:       #0d1117;
+    --bg3:       #111820;
+    --border:    #1e2d3d;
+    --accent:    #00ff88;
+    --accent2:   #ff3e6c;
+    --accent3:   #00b4ff;
+    --text:      #c9d1d9;
+    --muted:     #4a5568;
+    --warn:      #f6ad55;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Grid noise overlay */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(0,255,136,0.015) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,255,136,0.015) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* ── Header ──────────────────────────────────────────────── */
+  header {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background: rgba(8,12,16,0.92);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--border);
+    padding: 0 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 56px;
+  }
+
+  .logo {
+    font-family: 'Syne', sans-serif;
+    font-weight: 800;
+    font-size: 18px;
+    letter-spacing: 0.05em;
+    color: #fff;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .logo-dot { width: 8px; height: 8px; background: var(--accent); border-radius: 50%; animation: pulse 2s infinite; }
+  @keyframes pulse { 0%,100%{box-shadow:0 0 0 0 rgba(0,255,136,0.6)} 50%{box-shadow:0 0 0 6px rgba(0,255,136,0)} }
+
+  .header-right { display: flex; align-items: center; gap: 16px; }
+  .status-badge {
+    font-size: 11px;
+    padding: 3px 10px;
+    border-radius: 100px;
+    border: 1px solid var(--accent);
+    color: var(--accent);
+    animation: blink 3s ease-in-out infinite;
+  }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.6} }
+
+  .time-select {
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 4px 10px;
+    border-radius: 4px;
+    font-family: inherit;
+    font-size: 12px;
+    cursor: pointer;
+  }
+  .refresh-btn {
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    padding: 4px 12px;
+    border-radius: 4px;
+    font-family: inherit;
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .refresh-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+  /* ── Layout ──────────────────────────────────────────────── */
+  main {
+    position: relative;
+    z-index: 1;
+    padding: 24px;
+    max-width: 1600px;
+    margin: 0 auto;
+  }
+
+  /* ── Stat Cards ──────────────────────────────────────────── */
+  .stat-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 12px;
+    margin-bottom: 24px;
+  }
+
+  .stat-card {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 16px;
+    position: relative;
+    overflow: hidden;
+    transition: border-color 0.2s;
+  }
+  .stat-card:hover { border-color: var(--accent); }
+  .stat-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, var(--accent), transparent);
+  }
+  .stat-card.red::before { background: linear-gradient(90deg, var(--accent2), transparent); }
+  .stat-card.blue::before { background: linear-gradient(90deg, var(--accent3), transparent); }
+  .stat-card.warn::before { background: linear-gradient(90deg, var(--warn), transparent); }
+
+  .stat-label { color: var(--muted); font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 8px; }
+  .stat-value { font-size: 28px; font-weight: 700; color: #fff; }
+  .stat-sub { font-size: 10px; color: var(--muted); margin-top: 4px; }
+
+  /* ── Panels ──────────────────────────────────────────────── */
+  .panel-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-bottom: 16px;
+  }
+  .panel-grid.three { grid-template-columns: 1fr 1fr 1fr; }
+  @media (max-width: 1100px) { .panel-grid, .panel-grid.three { grid-template-columns: 1fr; } }
+
+  .panel {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    overflow: hidden;
+  }
+  .panel-header {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--muted);
+  }
+  .panel-header span { color: var(--accent); font-size: 10px; }
+  .panel-body { padding: 12px 16px; max-height: 320px; overflow-y: auto; }
+  .panel-body::-webkit-scrollbar { width: 4px; }
+  .panel-body::-webkit-scrollbar-track { background: transparent; }
+  .panel-body::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+  /* ── Bar Chart rows ──────────────────────────────────────── */
+  .bar-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 8px;
+    font-size: 12px;
+  }
+  .bar-label { width: 140px; flex-shrink: 0; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .bar-track { flex: 1; height: 6px; background: var(--bg3); border-radius: 3px; overflow: hidden; }
+  .bar-fill { height: 100%; background: var(--accent); border-radius: 3px; transition: width 0.5s ease; }
+  .bar-fill.red { background: var(--accent2); }
+  .bar-fill.blue { background: var(--accent3); }
+  .bar-count { width: 50px; text-align: right; color: var(--muted); font-size: 11px; }
+
+  /* ── Events Table ────────────────────────────────────────── */
+  .event-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  .event-table th {
+    text-align: left;
+    padding: 6px 10px;
+    color: var(--muted);
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    border-bottom: 1px solid var(--border);
+    font-weight: 400;
+  }
+  .event-table td { padding: 7px 10px; border-bottom: 1px solid rgba(30,45,61,0.5); }
+  .event-table tr:hover td { background: rgba(0,255,136,0.03); }
+  .event-table tr:last-child td { border-bottom: none; }
+
+  .badge {
+    display: inline-block;
+    padding: 2px 7px;
+    border-radius: 3px;
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+  }
+  .badge-success { background: rgba(0,255,136,0.12); color: var(--accent); }
+  .badge-fail    { background: rgba(255,62,108,0.12); color: var(--accent2); }
+  .badge-bot     { background: rgba(246,173,85,0.12);  color: var(--warn); }
+  .badge-brute   { background: rgba(255,62,108,0.2);   color: var(--accent2); }
+  .badge-target  { background: rgba(0,180,255,0.12);   color: var(--accent3); }
+
+  /* ── Timeline Chart ──────────────────────────────────────── */
+  #timeline { width: 100%; height: 120px; display: block; }
+
+  /* ── World map placeholder ───────────────────────────────── */
+  .country-flag { margin-right: 4px; }
+
+  /* ── Loading / Error ─────────────────────────────────────── */
+  .loading { color: var(--muted); text-align: center; padding: 40px; }
+  .error { color: var(--accent2); text-align: center; padding: 20px; font-size: 11px; }
+
+  /* ── Alert banner ───────────────────────────────────────── */
+  #alert-banner {
+    display: none;
+    background: rgba(255,62,108,0.1);
+    border: 1px solid var(--accent2);
+    border-radius: 4px;
+    padding: 8px 16px;
+    margin-bottom: 16px;
+    color: var(--accent2);
+    font-size: 12px;
+  }
+
+  /* ── Scrollbar global ───────────────────────────────────── */
+  html { scrollbar-width: thin; scrollbar-color: var(--border) transparent; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo-dot"></div>
+    ShadowTrap <span style="color:var(--accent)">AI</span>
+  </div>
+  <div class="header-right">
+    <div class="status-badge">● LIVE</div>
+    <select class="time-select" id="hours-select" onchange="loadAll()">
+      <option value="1">Last 1h</option>
+      <option value="6">Last 6h</option>
+      <option value="24" selected>Last 24h</option>
+      <option value="72">Last 3d</option>
+      <option value="168">Last 7d</option>
+      <option value="720">Last 30d</option>
+    </select>
+    <button class="refresh-btn" onclick="loadAll()">⟳ Refresh</button>
+  </div>
+</header>
+
+<main>
+  <div id="alert-banner"></div>
+
+  <!-- Stat cards -->
+  <div class="stat-grid">
+    <div class="stat-card red">
+      <div class="stat-label">Total Attempts</div>
+      <div class="stat-value" id="s-attempts">—</div>
+      <div class="stat-sub">Login events captured</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Unique IPs</div>
+      <div class="stat-value" id="s-ips">—</div>
+      <div class="stat-sub">Distinct attackers</div>
+    </div>
+    <div class="stat-card blue">
+      <div class="stat-label">Unique Usernames</div>
+      <div class="stat-value" id="s-users">—</div>
+      <div class="stat-sub">Credentials tried</div>
+    </div>
+    <div class="stat-card warn">
+      <div class="stat-label">Commands Logged</div>
+      <div class="stat-value" id="s-cmds">—</div>
+      <div class="stat-sub">Shell interactions</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Sessions</div>
+      <div class="stat-value" id="s-sessions">—</div>
+      <div class="stat-sub">Total connections</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Countries</div>
+      <div class="stat-value" id="s-countries">—</div>
+      <div class="stat-sub">Attack origins</div>
+    </div>
+  </div>
+
+  <!-- Timeline -->
+  <div class="panel" style="margin-bottom:16px">
+    <div class="panel-header">Attack timeline <span id="timeline-label">Hourly buckets</span></div>
+    <div style="padding:12px 16px 16px">
+      <canvas id="timeline"></canvas>
+    </div>
+  </div>
+
+  <!-- Top lists row -->
+  <div class="panel-grid three">
+    <div class="panel">
+      <div class="panel-header">Top Attacker IPs <span id="ip-count"></span></div>
+      <div class="panel-body" id="top-ips"><div class="loading">Loading...</div></div>
+    </div>
+    <div class="panel">
+      <div class="panel-header">Top Usernames <span id="user-count"></span></div>
+      <div class="panel-body" id="top-users"><div class="loading">Loading...</div></div>
+    </div>
+    <div class="panel">
+      <div class="panel-header">Top Passwords <span id="pass-count"></span></div>
+      <div class="panel-body" id="top-passwords"><div class="loading">Loading...</div></div>
+    </div>
+  </div>
+
+  <!-- Countries + Categories -->
+  <div class="panel-grid">
+    <div class="panel">
+      <div class="panel-header">Origin Countries</div>
+      <div class="panel-body" id="top-countries"><div class="loading">Loading...</div></div>
+    </div>
+    <div class="panel">
+      <div class="panel-header">Attack Categories</div>
+      <div class="panel-body" id="categories"><div class="loading">Loading...</div></div>
+    </div>
+  </div>
+
+  <!-- Recent events -->
+  <div class="panel" style="margin-bottom:16px">
+    <div class="panel-header">Recent Login Attempts <span id="events-count"></span></div>
+    <div class="panel-body" style="max-height:400px">
+      <table class="event-table">
+        <thead>
+          <tr>
+            <th>Time</th>
+            <th>IP</th>
+            <th>Country</th>
+            <th>Username</th>
+            <th>Password</th>
+            <th>Category</th>
+            <th>Result</th>
+          </tr>
+        </thead>
+        <tbody id="events-body"><tr><td colspan="7" class="loading">Loading...</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+</main>
+
+<script>
+const API = '/api/v1';
+
+function hours() {
+  return document.getElementById('hours-select').value;
+}
+
+async function fetchJSON(url) {
+  const r = await fetch(url);
+  if (!r.ok) throw new Error(`HTTP ${r.status}`);
+  return r.json();
+}
+
+// ── Timeline Canvas ──────────────────────────────────────────
+function drawTimeline(data) {
+  const canvas = document.getElementById('timeline');
+  const ctx = canvas.getContext('2d');
+  canvas.width = canvas.offsetWidth;
+  canvas.height = 120;
+
+  if (!data || data.length === 0) {
+    ctx.fillStyle = '#4a5568';
+    ctx.font = '12px JetBrains Mono';
+    ctx.textAlign = 'center';
+    ctx.fillText('No data', canvas.width / 2, 60);
+    return;
+  }
+
+  const max = Math.max(...data.map(d => d.count), 1);
+  const pad = { top: 10, right: 10, bottom: 20, left: 36 };
+  const w = canvas.width - pad.left - pad.right;
+  const h = canvas.height - pad.top - pad.bottom;
+  const bw = w / data.length;
+
+  // Gradient fill
+  const grad = ctx.createLinearGradient(0, pad.top, 0, pad.top + h);
+  grad.addColorStop(0, 'rgba(0,255,136,0.4)');
+  grad.addColorStop(1, 'rgba(0,255,136,0.02)');
+
+  ctx.beginPath();
+  data.forEach((d, i) => {
+    const x = pad.left + i * bw + bw / 2;
+    const y = pad.top + h - (d.count / max) * h;
+    if (i === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+  });
+  ctx.strokeStyle = '#00ff88';
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+
+  ctx.lineTo(pad.left + (data.length - 1) * bw + bw / 2, pad.top + h);
+  ctx.lineTo(pad.left + bw / 2, pad.top + h);
+  ctx.closePath();
+  ctx.fillStyle = grad;
+  ctx.fill();
+
+  // Y axis label
+  ctx.fillStyle = '#4a5568';
+  ctx.font = '10px JetBrains Mono';
+  ctx.textAlign = 'right';
+  ctx.fillText(max, pad.left - 4, pad.top + 4);
+  ctx.fillText(0, pad.left - 4, pad.top + h + 4);
+}
+
+// ── Bar rows ──────────────────────────────────────────────────
+function barRows(items, labelKey, countKey, color = '') {
+  if (!items || items.length === 0) return '<div class="error">No data</div>';
+  const max = items[0][countKey] || 1;
+  return items.map(item => `
+    <div class="bar-row">
+      <div class="bar-label" title="${item[labelKey]}">${item[labelKey] || '(empty)'}</div>
+      <div class="bar-track"><div class="bar-fill ${color}" style="width:${(item[countKey]/max*100).toFixed(1)}%"></div></div>
+      <div class="bar-count">${item[countKey].toLocaleString()}</div>
+    </div>
+  `).join('');
+}
+
+function categoryBadge(cat) {
+  const map = {
+    brute_force: 'badge-brute',
+    credential_stuffing: 'badge-bot',
+    dictionary_attack: 'badge-bot',
+    bot_scan: 'badge-bot',
+    targeted: 'badge-target',
+    unknown: '',
+  };
+  return `<span class="badge ${map[cat] || ''}">${cat || 'unknown'}</span>`;
+}
+
+function fmtTime(ts) {
+  if (!ts) return '—';
+  return new Date(ts).toLocaleTimeString('en-US', { hour12: false });
+}
+
+// ── Load all data ─────────────────────────────────────────────
+async function loadAll() {
+  const h = hours();
+  try {
+    const stats = await fetchJSON(`${API}/stats/dashboard?hours=${h}`);
+    renderStats(stats);
+    drawTimeline(stats.attacks_over_time);
+  } catch (e) {
+    showBanner('⚠ Cannot reach backend API. Is the server running?');
+  }
+
+  try {
+    const events = await fetchJSON(`${API}/events/logins?per_page=30`);
+    renderEvents(events.data);
+  } catch(e) {}
+}
+
+function renderStats(s) {
+  document.getElementById('s-attempts').textContent = (s.total_attempts || 0).toLocaleString();
+  document.getElementById('s-ips').textContent = (s.unique_ips || 0).toLocaleString();
+  document.getElementById('s-users').textContent = (s.unique_usernames || 0).toLocaleString();
+  document.getElementById('s-cmds').textContent = (s.total_commands || 0).toLocaleString();
+  document.getElementById('s-sessions').textContent = (s.total_sessions || 0).toLocaleString();
+  document.getElementById('s-countries').textContent = (s.top_countries || []).length;
+
+  document.getElementById('top-ips').innerHTML = barRows(s.top_ips, 'ip', 'count', 'red');
+  document.getElementById('top-users').innerHTML = barRows(s.top_usernames, 'username', 'count');
+  document.getElementById('top-passwords').innerHTML = barRows(s.top_passwords, 'password', 'count', 'blue');
+  document.getElementById('top-countries').innerHTML = barRows(
+    s.top_countries, 'country_name', 'count'
+  );
+  document.getElementById('categories').innerHTML = barRows(
+    s.category_distribution, 'category', 'count', 'warn'
+  );
+}
+
+function renderEvents(data) {
+  if (!data || data.length === 0) {
+    document.getElementById('events-body').innerHTML =
+      '<tr><td colspan="7" class="loading">No events yet — waiting for attackers…</td></tr>';
+    return;
+  }
+  document.getElementById('events-body').innerHTML = data.map(e => `
+    <tr>
+      <td style="color:var(--muted)">${fmtTime(e.timestamp)}</td>
+      <td style="color:var(--accent3)">${e.src_ip}</td>
+      <td>${e.country_code ? `<span class="country-flag">${e.country_code}</span>` : '—'}</td>
+      <td>${e.username || '—'}</td>
+      <td style="color:var(--muted)">${e.password ? '●'.repeat(Math.min(e.password.length,8)) : '—'}</td>
+      <td>${categoryBadge(e.category)}</td>
+      <td><span class="badge ${e.success ? 'badge-success' : 'badge-fail'}">${e.success ? 'SUCCESS' : 'FAIL'}</span></td>
+    </tr>
+  `).join('');
+}
+
+function showBanner(msg) {
+  const b = document.getElementById('alert-banner');
+  b.textContent = msg;
+  b.style.display = 'block';
+}
+
+// Auto-refresh every 15 seconds
+loadAll();
+setInterval(loadAll, 15000);
+
+// Resize timeline on window resize
+window.addEventListener('resize', () => {
+  const canvas = document.getElementById('timeline');
+  canvas.width = canvas.offsetWidth;
+});
+</script>
+</body>
+</html>

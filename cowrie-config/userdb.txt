@@ -1,0 +1,23 @@
+# ShadowTrap AI - Cowrie UserDB
+# Format: username:password  (or username:* for any password)
+# Lines starting with ! mean login WILL succeed (honeypot trap)
+# Lines without ! mean login will FAIL
+
+# Trap credentials — attackers who use these will get shell access (fake)
+!root:root
+!root:toor
+!root:password
+!root:123456
+!root:admin
+!admin:admin
+!admin:password
+!admin:123456
+!ubuntu:ubuntu
+!pi:raspberry
+
+# Always-fail (block common scanners without shell)
+root:*
+admin:*
+user:*
+test:*
+guest:*
